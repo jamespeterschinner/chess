@@ -21,9 +21,9 @@
         />
 
         <Piece
-          v-for="({ svg, coordinates }, index) in boardState"
+          v-for="({ svgPath, coordinates }, index) in drawablePieces"
           :key="index"
-          :svg-path="svg"
+          :svg-path="svgPath"
           :coordinates="coordinates"
         />
       </svg>
@@ -33,32 +33,16 @@
 </template>
 
 <script lang="ts">
+import { mapGetters } from 'vuex'
 import Vue from 'vue'
-import {
-  assignedPieceToSVG,
-  indexToCoordinates,
-  Square,
-  isSome,
-  Coordinates,
-} from '~/assets/src/board'
 
 export default Vue.extend({
   computed: {
-    boardState() {
-      return this.$store.state.board.boardState
-        .map((square: Square, index: number) => [
-          square,
-          indexToCoordinates(index),
-        ])
-        .filter(([square]: [Square, Coordinates]) => isSome(square))
-        .map(([square, coordinates]: [Square, Coordinates]) => {
-          return { svg: assignedPieceToSVG(square?.value!), coordinates }
-        })
-    },
+    ...mapGetters('board', ['drawablePieces']),
   },
   methods: {
     logState() {
-      console.log(this.$store.state.board.boardState)
+      console.log(this.$store.state.board)
     },
   },
 })
