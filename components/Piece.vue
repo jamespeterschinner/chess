@@ -5,8 +5,8 @@
       :href="require(`~/assets/pieces/${svgPath}`)"
       height="1"
       width="1"
-      :x="coordinates.file + 1"
-      :y="coordinates.row + 1"
+      :x="coordinates.file"
+      :y="coordinates.row"
     />
   </svg>
 </template>

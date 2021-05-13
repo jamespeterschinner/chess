@@ -7,34 +7,26 @@
           <rect class="light" x="1" y="1" width="1" height="1" />
         </pattern>
       </defs>
+      <Boarder />
+      <!-- Using another viewBox allows alligning
+      the piece coordinates with the chess board coordinates -->
+      <svg viewBox="-1 -1 10 10">
+        <rect
+          class="board"
+          x="0"
+          y="0"
+          width="8"
+          height="8"
+          fill="url(#square)"
+        />
 
-      <rect
-        class="board"
-        x="1"
-        y="1"
-        width="8"
-        height="8"
-        fill="url(#square)"
-      />
-      <path
-        class="border stroke-current text-purple-500"
-        d="M1,0.5 
-        h8
-        a0.5,0.5 0 0 1 0.5,0.5 
-        v8
-        a0.5,0.5 0 0 1 -0.5,0.5
-        h-8
-        a0.5,0.5 0 0 1 -0.5,-0.5
-        v-8
-        a0.5,0.5 0 0 1 0.5,-0.5
-        Z"
-      />
-      <Piece
-        v-for="({ svg, coordinates }, index) in boardState"
-        :key="index"
-        :svg-path="svg"
-        :coordinates="coordinates"
-      />
+        <Piece
+          v-for="({ svg, coordinates }, index) in boardState"
+          :key="index"
+          :svg-path="svg"
+          :coordinates="coordinates"
+        />
+      </svg>
     </svg>
     <button @click="logState">log state</button>
   </div>
