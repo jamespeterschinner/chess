@@ -75,21 +75,23 @@ export enum Player {
 export type AssignedPiece = {
   owner: Player
   piece: Piece
+  coordinates: Coordinates
 }
 
-type DrawablePiece = {
-  svgPath: string
-  coordinates: Coordinates
+export type DrawablePiece = {
+  assignedPiece: AssignedPiece
+  svgURI: String
 }
 
 export type DrawablePieces = DrawablePiece[]
 
 export type Square = Option<AssignedPiece>
 
-function createAssignedPiece(owner: Player, piece: Piece) {
+function createAssignedPiece(owner: Player, piece: Piece, coordinates: Coordinates) {
   return {
-    owner: owner,
-    piece: piece,
+    owner,
+    piece,
+    coordinates,
   }
 }
 
@@ -126,10 +128,9 @@ let rowToAssignedPlayer = (row: number): Option<Player> => {
 
 function mapCoordinatesToInitalPosition(
   player: Player,
-  file: number,
-  row: number
+  {file, row}: Coordinates
 ): Option<AssignedPiece> {
-  let addPiece = (piece: Piece) => some(createAssignedPiece(player, piece))
+  let addPiece = (piece: Piece) => some(createAssignedPiece(player, piece, {file, row}))
   // Assign pawns
   switch (row) {
     case 1: // Fall-through statement (matches both)
@@ -174,13 +175,12 @@ export function initializeBoard() {
     })
     .map(function ([optionPlayer, file, row]) {
       return mapDefaultOption(optionPlayer, none, (player) =>
-        mapCoordinatesToInitalPosition(player, file, row)
+        mapCoordinatesToInitalPosition(player, {file, row})
       )
     })
 }
 
 export function boardToDrawablePieces(board: Board): DrawablePieces {
-  console.log(board)
 
   return board
     .map((square: Square, index: number): [Square, Coordinates] => [
@@ -189,9 +189,10 @@ export function boardToDrawablePieces(board: Board): DrawablePieces {
     ])
     .filter(([square]): boolean => isSome(square as Square))
     .map(([square, coordinates]): DrawablePiece => {
+      let assignedPiece = square?.value!
       return {
-        svgPath: assignedPieceToSVG(square?.value!),
-        coordinates,
+        assignedPiece,
+        svgURI: require(`~/assets/pieces/${assignedPieceToSVG(assignedPiece)}`)
       }
     })
 }
