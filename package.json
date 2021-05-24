@@ -27,7 +27,6 @@
     "core-js": "^3.9.1",
     "gsap": "^3.6.1",
     "nuxt": "^2.15.3",
-    "prelude-ts": "^1.0.2",
     "webpack": "^4.46.0"
   },
   "devDependencies": {

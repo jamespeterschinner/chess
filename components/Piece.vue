@@ -1,34 +1,39 @@
 <template>
   <image
     ref="piece"
-    :href="drawablePiece.svgURI"
+    :href="square.piece.svgURI"
     :height="size"
     :width="size"
-    :x="drawablePiece.assignedPiece.coordinates.file * size"
-    :y="drawablePiece.assignedPiece.coordinates.row * size"
-    @click="click"
+    :x="square.coordinates.file * size"
+    :y="square.coordinates.row * size"
   />
 </template>
 
 <script lang="ts">
 import Vue, { PropOptions, PropType } from 'vue'
+import { NonEmptySquare, coordinatesToIndex} from '~/assets/src/board'
+import { relXYToCoordinates } from '~/assets/src/helpers'
+
 import gsap from 'gsap'
 import { Draggable } from 'gsap/Draggable'
-
-import { DrawablePiece } from '~/assets/src/board'
 
 if (process.client) {
   gsap.registerPlugin(Draggable)
 }
 
 export default Vue.extend({
+  data() {
+    return {
+      draggable: null,
+    }
+  },
   props: {
     size: {
       type: Number,
       required: true,
     } as PropOptions<Number>,
-    drawablePiece: {
-      type: Object as PropType<DrawablePiece>,
+    square: {
+      type: Object as PropType<NonEmptySquare>,
       required: true,
     },
   },
@@ -36,33 +41,42 @@ export default Vue.extend({
     domElement(): Element {
       return this.$refs.piece as Element
     },
-    // x():Number {
-    //   let offset =
-    //     Number(this.domElement.attributes?.transform.value.match(/(\-?\d+,?){4}(\-?\d+)/).pop())
-    // }
   },
-  methods: {
-    getTransformNumber(index: Number): Number {
-      try {
-        return Number(
-          this.domElement.attributes
-            .getNamedItem('transform')! // Silence lint
-            .value.match(`(\\-?\\d+,?){${index}}(\\-?\\d+)`)! // Any errors will return 0
-            .pop()
-        )
-      } catch {
-        return 0
-      }
-    },
 
-    click() {
-      // This event callback is fired when a Drag event ends
-      console.log(this.getTransformNumber(4), this.getTransformNumber(5))
-      // console.log(xYToCoordinates(this.$props.scale, this.domElement.attributes))
-    },
-  },
   mounted() {
-    Draggable.create(this.domElement)
+    let target = this.domElement,
+      scale = this.$props.size,
+      square = this.$props.square,
+      offsetCoordinates = this.$props.square.coordinates,
+      store = this.$store,
+      onDrag = () => {
+        // Need to use arrow function to capture this
+        this.$emit('pieceSelected', square)
+      }
+    this.$data.draggable = Draggable.create(target, {
+      onDrag: onDrag,
+
+      onRelease(event: Event) {
+        let droppedIndex = coordinatesToIndex(relXYToCoordinates(
+          scale,
+          offsetCoordinates,
+          this.x,
+          this.y
+        ))
+        store.commit('board/movePiece', { square, droppedIndex})
+      },
+
+      liveSnap: {
+        x: function (value) {
+          //snap to the closest increment of 50.
+          return Math.round(value / scale) * scale
+        },
+        y: function (value) {
+          //snap to the closest increment of 25.
+          return Math.round(value / scale) * scale
+        },
+      },
+    })
   },
 })
 </script>

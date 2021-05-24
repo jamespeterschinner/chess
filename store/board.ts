@@ -1,28 +1,41 @@
 import {
   Model,
   Player,
-  initializeBoard,
-  boardToDrawablePieces,
-  DrawablePieces,
+  initialBoard,
+  AssignedPiece,
+  Coordinates,
+  Square,
+  getSquaresWithPieces,
+  NonEmptySquare
 } from '~/assets/src/board'
+import {movePiece} from '~/assets/src/helpers'
+
+interface MovePiece {
+  square: NonEmptySquare,
+  droppedIndex: number
+}
 
 export const state = (): Model => ({
   turn: Player.White,
-  boardState: initializeBoard(),
+  boardState: initialBoard,
 })
 
-export const mutations = () => ({
+export const mutations = {
   initialize(state: Model): Model {
     return {
       turn: Player.White,
-      boardState: initializeBoard(),
+      boardState: initialBoard,
     }
   },
-})
+  movePiece(state: Model, {square, droppedIndex}: MovePiece): Model {
+    state.boardState =  movePiece(state.boardState, square, droppedIndex)
+    return state
+  }
+}
 
 export const getters = {
-  drawablePieces(state: Model): DrawablePieces {
+  squaresWithPieces(state: Model): Square<AssignedPiece>[] {
     // console.log(state)
-    return boardToDrawablePieces(state.boardState)
+    return getSquaresWithPieces(state.boardState)
   },
 }

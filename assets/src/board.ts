@@ -1,43 +1,8 @@
+import { Maybe, Just, just, Nothing, nothing, map, isJust, unwrap } from './maybe'
 // A File in chess is a vertical column
-
-type Some<T> = { value: T }
-
-function some<T>(value: T) {
-  return { value: value }
-}
-
-type None = null
-
-const none = null
-
-type Option<T> = Some<T> | None
-
-export function isSome<T>(option: Option<T>): boolean {
-  return option != none ? true : false
-}
-
-function mapDefaultOption<A, B>(
-  option: Option<A>,
-  def: Option<B>,
-  func: (arg: A) => Option<B>
-): Option<B> {
-  if (option?.value != undefined) {
-    return func(option.value)
-  } else {
-    return def
-  }
-}
-
-// Vertical column
 enum File {
-  A,
-  B,
-  C,
-  D,
-  E,
-  F,
-  G,
-  H,
+  // Listed in reverse order correctly allign SVG coordinates with chess notation
+  H, G, F, E, D, C, B, A
 }
 
 enum Row {
@@ -58,7 +23,7 @@ export interface Coordinates {
 
 type Index = number
 
-enum Piece {
+export enum Piece {
   King,
   Queen,
   Bishop,
@@ -75,39 +40,45 @@ export enum Player {
 export type AssignedPiece = {
   owner: Player
   piece: Piece
-  coordinates: Coordinates
-}
-
-export type DrawablePiece = {
-  assignedPiece: AssignedPiece
+  moveCount: number
   svgURI: String
 }
 
-export type DrawablePieces = DrawablePiece[]
+export type Square<T> = {
+  index: number
+  coordinates: Coordinates
+  piece: T
+}
 
-export type Square = Option<AssignedPiece>
+export type EmptySquare = Square<Nothing>
+export type NonEmptySquare = Square<AssignedPiece>
+export type MaybeEmptySquare = Square<Maybe<AssignedPiece>>
 
-function createAssignedPiece(owner: Player, piece: Piece, coordinates: Coordinates) {
+
+function createAssignedPiece(owner: Player, piece: Piece): AssignedPiece {
   return {
     owner,
     piece,
-    coordinates,
+    moveCount: 0,
+    svgURI: require(`~/assets/pieces/${[Player[owner], Piece[piece]].join('-') + '.svg'}`)
+
   }
 }
 
-type Board = Square[]
+export type Board = Square<Maybe<AssignedPiece>>[]
 
 export type Model = {
   turn: Player
   boardState: Board
 }
 
-function emptyBoard(): Board {
-  return Array(64).fill(none)
-}
+const emptyBoard: Square<Nothing>[] = Array(64).fill(null).map(
+  (value, index) => { return { index, coordinates: indexToCoordinates(index), piece: nothing } }
+)
 
-function coordinatesToIndex({ file, row }: Coordinates): Index {
-  return row * 8 + file
+
+export function coordinatesToIndex({ file, row }: Coordinates): Index {
+  return file * 8 + row
 }
 
 export function indexToCoordinates(index: number): Coordinates {
@@ -116,26 +87,20 @@ export function indexToCoordinates(index: number): Coordinates {
     row: index % 8,
   }
 }
-let rowToAssignedPlayer = (row: number): Option<Player> => {
+let rowToAssignedPlayer = (row: number): Maybe<Player> => {
   if (row <= 1) {
-    return some(Player.Black)
+    return just(Player.White)
   } else if (row >= 6) {
-    return some(Player.White)
+    return just(Player.Black)
   } else {
-    return none
+    return nothing
   }
 }
 
-function mapCoordinatesToInitalPosition(
-  player: Player,
-  {file, row}: Coordinates
-): Option<AssignedPiece> {
-  let addPiece = (piece: Piece) => some(createAssignedPiece(player, piece, {file, row}))
+function coordinatesToInitialPiece({ file, row }: Coordinates, player: Player) {
+  let addPiece = (piece: Piece) => createAssignedPiece(player, piece)
   // Assign pawns
   switch (row) {
-    case 1: // Fall-through statement (matches both)
-    case 6:
-      return addPiece(Piece.Pawn)
     case 0:
     case 7:
       // Add pieces
@@ -157,42 +122,28 @@ function mapCoordinatesToInitalPosition(
         case 7:
           return addPiece(Piece.Rook)
       }
-    default:
-      return none
+    default: return addPiece(Piece.Pawn)
   }
 }
 
-export function assignedPieceToSVG({ owner, piece }: AssignedPiece): string {
-  return [Player[owner], Piece[piece]].join('-') + '.svg'
+function addPieceToSquare(
+  square: Square<Nothing>
+): Square<Maybe<AssignedPiece>> {
+
+  return {
+    ...square, piece: map(rowToAssignedPlayer(square.coordinates.row),
+      (player) => coordinatesToInitialPiece(square.coordinates, player))
+  }
 }
 
-export function initializeBoard() {
-  return Array(64)
-    .fill(none)
-    .map((value, index) => indexToCoordinates(index))
-    .map(function ({ file, row }: Coordinates): [Option<Player>, File, Row] {
-      return [rowToAssignedPlayer(row), file, row]
-    })
-    .map(function ([optionPlayer, file, row]) {
-      return mapDefaultOption(optionPlayer, none, (player) =>
-        mapCoordinatesToInitalPosition(player, {file, row})
-      )
-    })
-}
+export const initialBoard = emptyBoard.map(addPieceToSquare)
 
-export function boardToDrawablePieces(board: Board): DrawablePieces {
+console.log(initialBoard)
 
-  return board
-    .map((square: Square, index: number): [Square, Coordinates] => [
-      square,
-      indexToCoordinates(index),
-    ])
-    .filter(([square]): boolean => isSome(square as Square))
-    .map(([square, coordinates]): DrawablePiece => {
-      let assignedPiece = square?.value!
-      return {
-        assignedPiece,
-        svgURI: require(`~/assets/pieces/${assignedPieceToSVG(assignedPiece)}`)
-      }
+export function getSquaresWithPieces(board: Board): NonEmptySquare[] {
+  return (board
+    .filter((square: Square<Maybe<AssignedPiece>>) => isJust(square.piece)) as Square<Just<AssignedPiece>>[])
+    .map((square: Square<Just<AssignedPiece>>) => {
+      return { ...square, piece: unwrap(square.piece) }
     })
 }

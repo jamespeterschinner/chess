@@ -28,20 +28,21 @@
         />
 
         <Piece
-          v-for="(drawablePiece, index) in drawablePieces"
-          :key="index"
+          @pieceSelected="pieceSelected"
+          v-for="square in squaresWithPieces"
+          :key="square"
           :size="svgDim.squareSize"
-          :drawable-piece="drawablePiece"
+          :square="square"
         />
       </svg>
     </svg>
-    <button @click="logState">log state</button>
   </div>
 </template>
 
 <script lang="ts">
 import { mapGetters } from 'vuex'
 import Vue from 'vue'
+import { AssignedPiece } from '~/assets/src/board'
 
 export default Vue.extend({
   data() {
@@ -50,7 +51,7 @@ export default Vue.extend({
     }
   },
   computed: {
-    ...mapGetters('board', ['drawablePieces']),
+    ...mapGetters('board', ['squaresWithPieces']),
     svgDim() {
       const size = this.$data.size
       return {
@@ -62,9 +63,9 @@ export default Vue.extend({
     },
   },
   methods: {
-    logState() {
-      console.log(this.$store.state)
-    },
+    pieceSelected(assignedPiece: AssignedPiece){
+      console.log('piece selected', assignedPiece)
+    }
   },
 })
 </script>
