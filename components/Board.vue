@@ -28,11 +28,19 @@
         />
 
         <Piece
-          @pieceSelected="pieceSelected"
           v-for="square in squaresWithPieces"
-          :key="square"
+          :key="JSON.stringify(square)"
           :size="svgDim.squareSize"
           :square="square"
+          @pieceSelected="pieceSelected"
+          @pieceDeselected='pieceDeselected'
+        />
+
+        <MoveHighLight
+          v-for="(coordinates, index) in $data.moveHighLights"
+          :key="index"
+          :coordinates="coordinates"
+          :size="svgDim.squareSize"
         />
       </svg>
     </svg>
@@ -42,12 +50,19 @@
 <script lang="ts">
 import { mapGetters } from 'vuex'
 import Vue from 'vue'
-import { AssignedPiece } from '~/assets/src/board'
+import {
+  AssignedPiece,
+  Board,
+  Coordinates,
+  NonEmptySquare,
+} from '~/assets/src/board'
+import { possibleMoves } from '~/assets/src/moves'
 
 export default Vue.extend({
   data() {
     return {
       size: 500,
+      moveHighLights: [],
     }
   },
   computed: {
@@ -63,9 +78,17 @@ export default Vue.extend({
     },
   },
   methods: {
-    pieceSelected(assignedPiece: AssignedPiece){
-      console.log('piece selected', assignedPiece)
-    }
+    board(): Board {
+      // If used as a getter typescript doesn't infer return type
+      return this.$store.state.board.boardState
+    },
+    pieceSelected(moveHighLights: Coordinates[]) {
+      this.$data.moveHighLights = moveHighLights
+    },
+    pieceDeselected() {
+      console.log('piece deSelected')
+      this.$data.moveHighLights = []
+    },
   },
 })
 </script>

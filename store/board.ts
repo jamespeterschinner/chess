@@ -6,7 +6,8 @@ import {
   Coordinates,
   Square,
   getSquaresWithPieces,
-  NonEmptySquare
+  NonEmptySquare,
+  Board
 } from '~/assets/src/board'
 import {movePiece} from '~/assets/src/helpers'
 
@@ -38,4 +39,7 @@ export const getters = {
     // console.log(state)
     return getSquaresWithPieces(state.boardState)
   },
+  board(state: Model): Board {
+    return state.boardState
+  }
 }

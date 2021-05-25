@@ -132,7 +132,7 @@ function addPieceToSquare(
 
   return {
     ...square, piece: map(rowToAssignedPlayer(square.coordinates.row),
-      (player) => coordinatesToInitialPiece(square.coordinates, player))
+      (player: Player) => coordinatesToInitialPiece(square.coordinates, player))
   }
 }
 

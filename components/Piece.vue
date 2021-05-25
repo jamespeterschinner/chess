@@ -11,22 +11,23 @@
 
 <script lang="ts">
 import Vue, { PropOptions, PropType } from 'vue'
-import { NonEmptySquare, coordinatesToIndex} from '~/assets/src/board'
-import { relXYToCoordinates } from '~/assets/src/helpers'
-
+import { mapGetters } from 'vuex'
 import gsap from 'gsap'
 import { Draggable } from 'gsap/Draggable'
+import {
+  NonEmptySquare,
+  coordinatesToIndex,
+  Coordinates,
+  Board,
+} from '~/assets/src/board'
+import { relXYToCoordinates } from '~/assets/src/helpers'
+import { possibleMoves } from '~/assets/src/moves'
 
 if (process.client) {
   gsap.registerPlugin(Draggable)
 }
 
 export default Vue.extend({
-  data() {
-    return {
-      draggable: null,
-    }
-  },
   props: {
     size: {
       type: Number,
@@ -37,45 +38,76 @@ export default Vue.extend({
       required: true,
     },
   },
+  data() {
+    return {
+      draggable: null,
+    }
+  },
   computed: {
+    ...mapGetters('board', ['board']),
     domElement(): Element {
       return this.$refs.piece as Element
     },
   },
+  methods: {
+    // This can't be cached as the board can change state with out the piece being
+    // rerendered
+    moves(): Coordinates[] {
+      return possibleMoves({ square: this.$props.square, board: this.board })
+    },
+  },
 
   mounted() {
-    let target = this.domElement,
-      scale = this.$props.size,
-      square = this.$props.square,
-      offsetCoordinates = this.$props.square.coordinates,
-      store = this.$store,
-      onDrag = () => {
-        // Need to use arrow function to capture this
-        this.$emit('pieceSelected', square)
-      }
+    const target = this.domElement
+    const scale = this.$props.size
+    const square = this.$props.square
+    const offsetCoordinates = this.$props.square.coordinates
+    const store = this.$store
+    const moves = this.moves
+
+    // Options for the draggable object that need to emit events
+    // need to be specified outside of the Draggable constructor
+    // inorder to correctly bind `this`
+    const onPress = () => {
+      this.$emit('pieceSelected', moves())
+    }
+
+    const pieceDeselected = () => {
+      this.$emit('pieceDeselected')
+    }
+
     this.$data.draggable = Draggable.create(target, {
-      onDrag: onDrag,
+      onPress,
 
       onRelease(event: Event) {
-        let droppedIndex = coordinatesToIndex(relXYToCoordinates(
+        const droppedCoordinates = relXYToCoordinates(
           scale,
           offsetCoordinates,
           this.x,
           this.y
-        ))
-        store.commit('board/movePiece', { square, droppedIndex})
+        )
+        const droppedIndex = coordinatesToIndex(droppedCoordinates)
+        // Using index for equality to avoid object comparison
+        if (moves().map((value) => JSON.stringify(value)).some(value => value == JSON.stringify(droppedCoordinates))) {
+          // A valid move was made
+          store.commit('board/movePiece', { square, droppedIndex })
+        } else {
+          // No valid move was made, return piece to initial position
+          gsap.set(target, { x: 0, y: 0 })
+        }
+        pieceDeselected()
       },
 
-      liveSnap: {
-        x: function (value) {
-          //snap to the closest increment of 50.
-          return Math.round(value / scale) * scale
-        },
-        y: function (value) {
-          //snap to the closest increment of 25.
-          return Math.round(value / scale) * scale
-        },
-      },
+      // liveSnap: {
+      //   x(value) {
+      //     // snap to the closest increment of 50.
+      //     return Math.round(value / scale) * scale
+      //   },
+      //   y(value) {
+      //     // snap to the closest increment of 25.
+      //     return Math.round(value / scale) * scale
+      //   },
+      // },
     })
   },
 })

@@ -21,3 +21,7 @@ export function isJust<T>(t: Maybe<T>): boolean{
 export function unwrap<T>(t: Just<T>){
     return t[0] as T
 }
+
+export function filter<T>(a: Maybe<T>[]): T[]{
+    return (a.filter(isJust) as Just<T>[]).map(unwrap)
+}
