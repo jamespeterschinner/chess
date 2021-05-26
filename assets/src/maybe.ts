@@ -25,3 +25,8 @@ export function unwrap<T>(t: Just<T>){
 export function filter<T>(a: Maybe<T>[]): T[]{
     return (a.filter(isJust) as Just<T>[]).map(unwrap)
 }
+
+export function defaultMapUnwrap<T, D>(t: Maybe<T>, f: (t: T, index?: number) => D, d: D): D {
+    let maybeResult = map(t, f)
+    return isJust(maybeResult)? unwrap(maybeResult as Just<D>): d
+}

@@ -9,7 +9,7 @@ import {
   NonEmptySquare,
   Board
 } from '~/assets/src/board'
-import {movePiece} from '~/assets/src/helpers'
+import {applyChange, StateChange} from '~/assets/src/moves'
 
 interface MovePiece {
   square: NonEmptySquare,
@@ -28,8 +28,8 @@ export const mutations = {
       boardState: initialBoard,
     }
   },
-  movePiece(state: Model, {square, droppedIndex}: MovePiece): Model {
-    state.boardState =  movePiece(state.boardState, square, droppedIndex)
+  movePiece(state: Model, change: StateChange): Model {
+    state.boardState =  applyChange(state.boardState, change)
     return state
   }
 }

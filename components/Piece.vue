@@ -21,7 +21,7 @@ import {
   Board,
 } from '~/assets/src/board'
 import { relXYToCoordinates } from '~/assets/src/helpers'
-import { possibleMoves } from '~/assets/src/moves'
+import { possibleMoves, PossibleMove, MappedMoves } from '~/assets/src/moves'
 
 if (process.client) {
   gsap.registerPlugin(Draggable)
@@ -52,8 +52,20 @@ export default Vue.extend({
   methods: {
     // This can't be cached as the board can change state with out the piece being
     // rerendered
-    moves(): Coordinates[] {
+    _possibleMoves(): PossibleMove[] {
       return possibleMoves({ square: this.$props.square, board: this.board })
+    },
+    moves(): Coordinates[] {
+      return this._possibleMoves().map(function ([coordinate]) {
+        return coordinate
+      })
+    },
+    mappedMoves(): MappedMoves {
+      return Object.fromEntries(
+        this._possibleMoves().map(function ([coordinate, stateChange]) {
+          return [JSON.stringify(coordinate), stateChange]
+        })
+      )
     },
   },
 
@@ -64,6 +76,7 @@ export default Vue.extend({
     const offsetCoordinates = this.$props.square.coordinates
     const store = this.$store
     const moves = this.moves
+    const mappedMoves = this.mappedMoves
 
     // Options for the draggable object that need to emit events
     // need to be specified outside of the Draggable constructor
@@ -87,27 +100,18 @@ export default Vue.extend({
           this.y
         )
         const droppedIndex = coordinatesToIndex(droppedCoordinates)
+
+        let stageChange = mappedMoves()[JSON.stringify(droppedCoordinates)]
         // Using index for equality to avoid object comparison
-        if (moves().map((value) => JSON.stringify(value)).some(value => value == JSON.stringify(droppedCoordinates))) {
+        if (stageChange) {
           // A valid move was made
-          store.commit('board/movePiece', { square, droppedIndex })
+          store.commit('board/movePiece', stageChange)
         } else {
           // No valid move was made, return piece to initial position
           gsap.set(target, { x: 0, y: 0 })
         }
         pieceDeselected()
       },
-
-      // liveSnap: {
-      //   x(value) {
-      //     // snap to the closest increment of 50.
-      //     return Math.round(value / scale) * scale
-      //   },
-      //   y(value) {
-      //     // snap to the closest increment of 25.
-      //     return Math.round(value / scale) * scale
-      //   },
-      // },
     })
   },
 })
