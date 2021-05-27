@@ -50,13 +50,9 @@
 <script lang="ts">
 import { mapGetters } from 'vuex'
 import Vue from 'vue'
-import {
-  AssignedPiece,
-  Board,
+import {Board,
   Coordinates,
-  NonEmptySquare,
-} from '~/assets/src/board'
-import { possibleMoves } from '~/assets/src/moves'
+} from '~/assets/src/types'
 
 export default Vue.extend({
   data() {

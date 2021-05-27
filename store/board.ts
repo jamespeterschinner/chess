@@ -1,20 +1,12 @@
+import {initialBoard, getSquaresWithPieces,} from '~/assets/src/helpers'
+import { applyChange } from '~/assets/src/moves'
 import {
-  Model,
-  Player,
-  initialBoard,
-  AssignedPiece,
-  Coordinates,
-  Square,
-  getSquaresWithPieces,
-  NonEmptySquare,
+  StateChange, Model,
+  Player, AssignedPiece,
+  Square, NonEmptySquare,
   Board
-} from '~/assets/src/board'
-import {applyChange, StateChange} from '~/assets/src/moves'
+} from "~/assets/src/types"
 
-interface MovePiece {
-  square: NonEmptySquare,
-  droppedIndex: number
-}
 
 export const state = (): Model => ({
   turn: Player.White,
@@ -29,7 +21,7 @@ export const mutations = {
     }
   },
   movePiece(state: Model, change: StateChange): Model {
-    state.boardState =  applyChange(state.boardState, change)
+    state.boardState = applyChange(state.boardState, change)
     return state
   }
 }

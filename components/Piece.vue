@@ -21,7 +21,8 @@ import {
   Board,
 } from '~/assets/src/board'
 import { relXYToCoordinates } from '~/assets/src/helpers'
-import { possibleMovesThatDontThreatenKing, PossibleMove, MappedMoves } from '~/assets/src/moves'
+import { possibleMovesThatDontThreatenKing } from '~/assets/src/moves'
+import {PossibleMove, MappedMoves} from '~/assets/src/types'
 
 if (process.client) {
   gsap.registerPlugin(Draggable)

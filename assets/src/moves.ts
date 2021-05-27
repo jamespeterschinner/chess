@@ -1,70 +1,17 @@
+import {
+    coordinatesToIndex, getSquareFromCoordinates, generatePath,
+    getSquareFromRelativeCoordinates, getPieceFromRelativeCoordinates, moveTowards,
+    addCoordinates,
+    getPieceFromCoordinates,
+    bounds
+} from './helpers'
+import { Maybe, isJust, nothing, just, filter, defaultMapUnwrap, map, unwrap, Just } from './maybe'
+import {
+    MaybeEmptySquare, NonEmptySquare, Piece, Player, AssignedPiece,
+    Board, Coordinates, PredicateArgs, RookType, Index,
+    CreateChange, PredicateFunc, PossibleMove, ChangeArgs, StateChange
+} from './types'
 
-import { AssignedPiece, Board, Coordinates, coordinatesToIndex, EmptySquare, indexToCoordinates, MaybeEmptySquare, NonEmptySquare, Piece, Player, Square } from './board'
-import { Maybe, isJust, nothing, just, filter, defaultMapUnwrap, map, unwrap } from './maybe'
-
-
-interface PredicateArgs {
-    square: NonEmptySquare,
-    board: Board
-    relMove: Coordinates
-}
-
-
-
-function stepTowards(from: number, to: number): number {
-    if (from < to) {
-        return from + 1
-    } else if (from > to) {
-        return from - 1
-    } else {
-        return from
-    }
-}
-const bounds = (n: number) => (n >= 0 && n <= 7)
-
-function moveTowards(from: Coordinates, to: Coordinates): Coordinates {
-    return {
-        file: stepTowards(from.file, to.file),
-        row: stepTowards(from.row, to.row)
-    }
-}
-
-type Path = Coordinates[]
-
-function generatePath(origin: Coordinates, offset: Coordinates): Maybe<Coordinates[]> {
-    let previousSquare = origin
-    let destination = { file: origin.file + offset.file, row: origin.row + offset.row }
-    let path: Coordinates[] = []
-    while (previousSquare.file != destination.file || previousSquare.row != destination.row) {
-        previousSquare = moveTowards(previousSquare, destination)
-        if (!bounds(previousSquare.file) || !bounds(previousSquare.row)) {
-            return nothing
-        }
-        path.push(previousSquare)
-    }
-    return just(path)
-}
-
-function getSquareFromCoordinates({ file, row }: Coordinates, board: Board): Maybe<MaybeEmptySquare> {
-
-    if (bounds(file) && bounds(row)) {
-        return just(board[coordinatesToIndex({ file, row })])
-    } else {
-        return nothing
-    }
-}
-
-function getSquareFromRelativeCoordinates({ square, board, relMove }: PredicateArgs): Maybe<MaybeEmptySquare> {
-    return getSquareFromCoordinates(addCoordinates(square.coordinates, relMove), board)
-}
-
-function getPieceFromRelativeCoordinates(args: PredicateArgs): Maybe<AssignedPiece> {
-    return defaultMapUnwrap(
-        getSquareFromRelativeCoordinates(args),
-        square => square.piece,
-        nothing
-    )
-}
 
 function squareOccupied(coordinates: Coordinates, board: Board): boolean {
     return defaultMapUnwrap(
@@ -89,7 +36,6 @@ function notOccupiedByOwnPiece(args: PredicateArgs): boolean {
 
 function pathClearAndTakeable(args: PredicateArgs) {
     return pathClear({ ...args, relMove: moveTowards(args.relMove, { file: 0, row: 0 }) })
-    // && !notOccupiedByOwnPiece(args)
 }
 
 function firstMove({ square }: PredicateArgs): boolean {
@@ -104,14 +50,25 @@ function toNonEmptySquare(maybeEmptySquare: MaybeEmptySquare): Maybe<NonEmptySqu
     )
 }
 
-function addCoordinates(coordinates: Coordinates, offset: Coordinates): Coordinates {
-    return { file: coordinates.file + offset.file, row: coordinates.row + offset.row }
-}
-
-function oppositeColourPiece({ square, board, relMove: move }: PredicateArgs): boolean {
-    let maybePiece = getPieceFromRelativeCoordinates({ square, board, relMove: move })
+function oppositeColourPiece({ square, board, relMove }: PredicateArgs): boolean {
+    let maybePiece = getPieceFromRelativeCoordinates({ square, board, relMove })
     return defaultMapUnwrap(maybePiece, piece => piece.owner != square.piece.owner, false)
 
+}
+
+
+function getRookCoordinates(rookType: RookType, player: Player): Coordinates {
+    // Not the current rook coordinates, but the initial coordinates
+    return {
+        [RookType.Queens]: { [Player.White]: { file: 0, row: 0 }, [Player.Black]: { file: 7, row: 7 } }[player],
+        [RookType.Kings]: { [Player.White]: { file: 7, row: 0 }, [Player.Black]: { file: 0, row: 7 } }[player]
+    }[rookType]
+}
+const rookNotMoved = (rookType: RookType) => ({ square, board, relMove }: PredicateArgs): boolean => {
+
+    return defaultMapUnwrap(
+        getSquareFromCoordinates(getRookCoordinates(rookType, square.piece.owner), board),
+        square => defaultMapUnwrap(square.piece, piece => piece.moveCount == 0, false), false)
 }
 
 function enPassentPredicate({ square, board, relMove: move }: PredicateArgs): boolean {
@@ -128,35 +85,12 @@ function enPassentPredicate({ square, board, relMove: move }: PredicateArgs): bo
         , false)
 }
 
-type PredicateFunc = (args: PredicateArgs) => boolean
-
-
-
-type Index = number
-
-export type StateChange = {
-    overwrite: { index: Index, piece: AssignedPiece }
-    remove: Index[]
-    possiblyEnPassentable: Index[]
-}
-
-export type PossibleMove = [Coordinates, StateChange]
-
-export type MappedMoves = {
-    [key: string]: StateChange
-}
-
-type ChangeArgs = {
-    piece: AssignedPiece, previousCoordinates: Coordinates, newCoordinates: Coordinates
-}
-
-type CreateChange = (args: ChangeArgs) => StateChange
 
 function invertCoordinates(coordinates: Coordinates) {
     return { file: coordinates.file * -1, row: coordinates.row * -1 }
 }
 
-type PredicateMoves = (args: PredicateArgs) => Maybe<PossibleMove>[]
+// type PredicateMoves = (args: PredicateArgs) => Maybe<PossibleMove>[]
 
 const predicatedMove = (relMove: Coordinates, change: CreateChange, predicates: PredicateFunc[]) =>
     (args: Omit<PredicateArgs, 'relMove'>): Maybe<PossibleMove> => {
@@ -169,6 +103,7 @@ const predicatedMove = (relMove: Coordinates, change: CreateChange, predicates: 
         return predicates.every(func => func(predicateArgs)) ?
             just([absoluteMove,
                 change({
+                    board: args.board,
                     piece: args.square.piece,
                     previousCoordinates: args.square.coordinates,
                     newCoordinates: absoluteMove
@@ -178,28 +113,27 @@ const predicatedMove = (relMove: Coordinates, change: CreateChange, predicates: 
 
 function defaultChange({ piece, previousCoordinates, newCoordinates }: ChangeArgs): StateChange {
     return {
-        overwrite: { piece: piece, index: coordinatesToIndex(newCoordinates) },
+        overwrite: [{ piece: piece, index: coordinatesToIndex(newCoordinates) }],
         remove: [coordinatesToIndex(previousCoordinates)],
         possiblyEnPassentable: []
     }
 }
 
-function enableEnPassentChange(args: ChangeArgs): StateChange {
+function enableEnPassentChange({ piece, previousCoordinates, newCoordinates }: ChangeArgs): StateChange {
     // When a pawn moves two squares next to the other players pawn
-    let def = defaultChange(args)
     return {
-        ...def,
         // Set en passent to true on the moved pawn
-        overwrite: { ...def.overwrite, piece: { ...def.overwrite.piece, enPassent: true } },
+        overwrite: [{ index: coordinatesToIndex(newCoordinates), piece: { ...piece, enPassent: true } }],
         // Also set en passent to true on the neighboring pieces if they exist
         possiblyEnPassentable: [1, -1].map(
-            offset => coordinatesToIndex({ ...args.newCoordinates, file: args.newCoordinates.file + offset })
-        )
+            offset => coordinatesToIndex({ ...newCoordinates, file: newCoordinates.file + offset })
+        ),
+        remove: []
     }
 }
 
 function enPassentChange(args: ChangeArgs): StateChange {
-    // The actual en passent move, taking behing the piece
+    // The actual en passent move, pawn taking opponents pawn behind it
     let change = defaultChange(args)
     return {
         ...change, remove: [
@@ -208,6 +142,28 @@ function enPassentChange(args: ChangeArgs): StateChange {
         ]
     }
 }
+
+function kingSideCastleChange(args: ChangeArgs): StateChange {
+    let change = defaultChange(args)
+    let newRookIndex = coordinatesToIndex(addCoordinates(args.newCoordinates, { file: 1, row: 0 }))
+    let oldRookCoordinates = getRookCoordinates(RookType.Kings, args.piece.owner)
+
+    // This move is predicated on the rook being in its initial position. So overriding the type
+    // **SHOULD** be safe
+    let rookPiece = unwrap(getPieceFromCoordinates(oldRookCoordinates, args.board) as Just<AssignedPiece>)
+
+    return {
+        ...change,
+        overwrite: [...change.overwrite, { index: newRookIndex, piece: rookPiece }],
+        remove: [coordinatesToIndex(oldRookCoordinates)]
+    }
+}
+
+function queenSideCastleChange(args: ChangeArgs): StateChange {
+    return defaultChange(args)
+
+}
+
 const pawnMoves = [
     // single square forward
     predicatedMove({ file: 0, row: 1 }, defaultChange, [pathClear]),
@@ -222,11 +178,22 @@ const pawnMoves = [
 
 ]
 
+// These seemimgly magic numbers are the possible moves in [file, row] relative to the current
+// pieces position
 const knightMoves = [[2, 1], [-2, 1], [2, -1], [-2, -1], [1, 2], [-1, 2], [1, -2], [-1, -2]]
     .map(function ([file, row]) { return predicatedMove({ file, row }, defaultChange, [notOccupiedByOwnPiece]) });
 
-const kingMoves = [[-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0]]
+
+const singleKingMOves = [[-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0]]
     .map(function ([file, row]) { return predicatedMove({ file, row }, defaultChange, [notOccupiedByOwnPiece]) });
+
+const castleMoves = [
+    // Castle king side
+    predicatedMove({ file: 2, row: 0 }, kingSideCastleChange, [pathClear, firstMove, rookNotMoved(RookType.Kings)]),
+    predicatedMove({ file: -2, row: 0 }, queenSideCastleChange, [pathClear, firstMove, rookNotMoved(RookType.Queens)])
+]
+
+const kingMoves = [singleKingMOves, castleMoves].flat()
 
 function generateMovesInDirection(direction: Coordinates, { board, square }: Omit<PredicateArgs, 'relMove'>): PossibleMove[] {
     type T = Maybe<PossibleMove>
@@ -339,11 +306,17 @@ let disableEnPassent = (square: MaybeEmptySquare): MaybeEmptySquare => {
     }
 }
 
-export function applyChange(board: Board, { overwrite: { index, piece }, remove, possiblyEnPassentable }: StateChange): Board {
+export function applyChange(board: Board, { overwrite, remove, possiblyEnPassentable }: StateChange): Board {
     return board.map((square: MaybeEmptySquare, idx: Index): MaybeEmptySquare => {
-        if (idx == index) {
-            return { ...square, piece: just({ ...piece, moveCount: piece.moveCount + 1 }) }
-        } else if (remove.some(rm => rm == idx)) {
+        for (let { index, piece } of overwrite) {
+            if (index == idx) {
+                return {
+                    ...square, piece: just({ ...piece, moveCount: piece.moveCount + 1 })
+                }
+            }
+        }
+
+        if (remove.some(rm => rm == idx)) {
             return { ...square, piece: nothing }
         } else if (possiblyEnPassentable.some(en => en == idx)) {
             return enableEnPassent(square)
