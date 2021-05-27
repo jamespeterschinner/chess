@@ -3,7 +3,7 @@ import { applyChange } from '~/assets/src/moves'
 import {
   StateChange, Model,
   Player, AssignedPiece,
-  Square, NonEmptySquare,
+  Square,
   Board
 } from "~/assets/src/types"
 
@@ -28,7 +28,6 @@ export const mutations = {
 
 export const getters = {
   squaresWithPieces(state: Model): Square<AssignedPiece>[] {
-    // console.log(state)
     return getSquaresWithPieces(state.boardState)
   },
   board(state: Model): Board {

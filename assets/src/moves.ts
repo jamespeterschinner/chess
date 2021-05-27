@@ -3,7 +3,8 @@ import {
     getSquareFromRelativeCoordinates, getPieceFromRelativeCoordinates, moveTowards,
     addCoordinates,
     getPieceFromCoordinates,
-    bounds
+    bounds,
+    indexToCoordinates
 } from './helpers'
 import { Maybe, isJust, nothing, just, filter, defaultMapUnwrap, map, unwrap, Just } from './maybe'
 import {
@@ -57,18 +58,19 @@ function oppositeColourPiece({ square, board, relMove }: PredicateArgs): boolean
 }
 
 
-function getRookCoordinates(rookType: RookType, player: Player): Coordinates {
+function getRookCoordinates(relFile: number, player: Player): Coordinates {
     // Not the current rook coordinates, but the initial coordinates
-    return {
-        [RookType.Queens]: { [Player.White]: { file: 0, row: 0 }, [Player.Black]: { file: 7, row: 7 } }[player],
-        [RookType.Kings]: { [Player.White]: { file: 7, row: 0 }, [Player.Black]: { file: 0, row: 7 } }[player]
-    }[rookType]
+    return (relFile > 0) ?
+        { [Player.White]: { file: 7, row: 0 }, [Player.Black]: { file: 0, row: 7 } }[player]
+        : { [Player.White]: { file: 0, row: 0 }, [Player.Black]: { file: 7, row: 7 } }[player]
 }
-const rookNotMoved = (rookType: RookType) => ({ square, board, relMove }: PredicateArgs): boolean => {
 
+function rookNotMoved({ square, board, relMove }: PredicateArgs): boolean {
     return defaultMapUnwrap(
-        getSquareFromCoordinates(getRookCoordinates(rookType, square.piece.owner), board),
-        square => defaultMapUnwrap(square.piece, piece => piece.moveCount == 0, false), false)
+        getPieceFromCoordinates(getRookCoordinates(relMove.file, square.piece.owner), board),
+        piece => piece.moveCount == 0,
+        false
+    )
 }
 
 function enPassentPredicate({ square, board, relMove: move }: PredicateArgs): boolean {
@@ -103,6 +105,7 @@ const predicatedMove = (relMove: Coordinates, change: CreateChange, predicates: 
         return predicates.every(func => func(predicateArgs)) ?
             just([absoluteMove,
                 change({
+                    relMove,
                     board: args.board,
                     piece: args.square.piece,
                     previousCoordinates: args.square.coordinates,
@@ -128,7 +131,7 @@ function enableEnPassentChange({ piece, previousCoordinates, newCoordinates }: C
         possiblyEnPassentable: [1, -1].map(
             offset => coordinatesToIndex({ ...newCoordinates, file: newCoordinates.file + offset })
         ),
-        remove: []
+        remove: [coordinatesToIndex(previousCoordinates)]
     }
 }
 
@@ -143,10 +146,10 @@ function enPassentChange(args: ChangeArgs): StateChange {
     }
 }
 
-function kingSideCastleChange(args: ChangeArgs): StateChange {
+function castleChange(args: ChangeArgs): StateChange {
     let change = defaultChange(args)
-    let newRookIndex = coordinatesToIndex(addCoordinates(args.newCoordinates, { file: 1, row: 0 }))
-    let oldRookCoordinates = getRookCoordinates(RookType.Kings, args.piece.owner)
+    let newRookIndex = coordinatesToIndex(moveTowards(args.newCoordinates, args.previousCoordinates))
+    let oldRookCoordinates = getRookCoordinates(args.relMove.file, args.piece.owner)
 
     // This move is predicated on the rook being in its initial position. So overriding the type
     // **SHOULD** be safe
@@ -155,13 +158,8 @@ function kingSideCastleChange(args: ChangeArgs): StateChange {
     return {
         ...change,
         overwrite: [...change.overwrite, { index: newRookIndex, piece: rookPiece }],
-        remove: [coordinatesToIndex(oldRookCoordinates)]
+        remove: [coordinatesToIndex(args.previousCoordinates), coordinatesToIndex(oldRookCoordinates)]
     }
-}
-
-function queenSideCastleChange(args: ChangeArgs): StateChange {
-    return defaultChange(args)
-
 }
 
 const pawnMoves = [
@@ -184,16 +182,16 @@ const knightMoves = [[2, 1], [-2, 1], [2, -1], [-2, -1], [1, 2], [-1, 2], [1, -2
     .map(function ([file, row]) { return predicatedMove({ file, row }, defaultChange, [notOccupiedByOwnPiece]) });
 
 
-const singleKingMOves = [[-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0]]
+const singleKingMoves = [[-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0]]
     .map(function ([file, row]) { return predicatedMove({ file, row }, defaultChange, [notOccupiedByOwnPiece]) });
 
 const castleMoves = [
     // Castle king side
-    predicatedMove({ file: 2, row: 0 }, kingSideCastleChange, [pathClear, firstMove, rookNotMoved(RookType.Kings)]),
-    predicatedMove({ file: -2, row: 0 }, queenSideCastleChange, [pathClear, firstMove, rookNotMoved(RookType.Queens)])
+    predicatedMove({ file: -2, row: 0 }, castleChange, [pathClear, firstMove, rookNotMoved]),
+    predicatedMove({ file: 2, row: 0 }, castleChange, [pathClear, firstMove, rookNotMoved])
 ]
 
-const kingMoves = [singleKingMOves, castleMoves].flat()
+const kingMoves = [singleKingMoves, castleMoves].flat()
 
 function generateMovesInDirection(direction: Coordinates, { board, square }: Omit<PredicateArgs, 'relMove'>): PossibleMove[] {
     type T = Maybe<PossibleMove>
@@ -273,7 +271,6 @@ function getKingsCoordinates(board: Board, player: Player): Maybe<Coordinates> {
 
 
 function filterMovesThatThreatenKing(args: Omit<PredicateArgs, 'relMove'>, [coordinates, StateChange]: PossibleMove): boolean {
-    console.log('considerd move', coordinates)
     // Generate a list of index's that the opposite player could move to (on then next turn) if the current move
     // in consideration is played
     let boardStateAfterMove = applyChange(args.board, StateChange)

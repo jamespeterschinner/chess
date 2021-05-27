@@ -80,7 +80,6 @@ export default Vue.extend({
       this.$data.moveHighLights = moveHighLights
     },
     pieceDeselected() {
-      console.log('piece deSelected')
       this.$data.moveHighLights = []
     },
   },

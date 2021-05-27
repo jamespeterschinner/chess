@@ -11,7 +11,7 @@
 
 <script lang='ts'>
 import Vue, { PropOptions } from 'vue'
-import { Coordinates } from '~/assets/src/board'
+import { Coordinates } from '~/assets/src/types'
 
 export default Vue.extend({
   props: {

@@ -3,10 +3,23 @@ import {
     Nothing, map, isJust, unwrap, Just
 } from './maybe'
 import {
-    Board, Player, Piece, AssignedPiece, Square, Coordinates,
+    Board, AssignedPiece, Square, Coordinates,
     Index, NonEmptySquare, MaybeEmptySquare, PredicateArgs
 } from './types'
 
+enum Player {
+    White,
+    Black,
+}
+
+enum Piece {
+    King,
+    Queen,
+    Bishop,
+    Knight,
+    Rook,
+    Pawn,
+}
 
 export function createAssignedPiece(owner: Player, piece: Piece): AssignedPiece {
     return {
@@ -15,7 +28,6 @@ export function createAssignedPiece(owner: Player, piece: Piece): AssignedPiece 
         enPassent: false,
         moveCount: 0,
         svgURI: require(`~/assets/pieces/${[Player[owner], Piece[piece]].join('-') + '.svg'}`)
-
     }
 }
 
@@ -74,17 +86,16 @@ export function coordinatesToInitialPiece({ file, row }: Coordinates, player: Pl
     }
 }
 
-function addPieceToSquare(
-    square: Square<Nothing>
-): Square<Maybe<AssignedPiece>> {
 
-    return {
-        ...square, piece: map(rowToAssignedPlayer(square.coordinates.row),
-            (player: Player) => coordinatesToInitialPiece(square.coordinates, player))
+export const initialBoard = emptyBoard.map(
+    (square: Square<Nothing>): Square<Maybe<AssignedPiece>> => {
+        return {
+            ...square, piece: 
+                map(rowToAssignedPlayer(square.coordinates.row),
+                    (player: Player) => {return coordinatesToInitialPiece(square.coordinates, player)})
+        }
     }
-}
-
-export const initialBoard = emptyBoard.map(addPieceToSquare)
+)
 
 export function getSquaresWithPieces(board: Board): NonEmptySquare[] {
     return (board

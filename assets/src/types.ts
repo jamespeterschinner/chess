@@ -93,7 +93,11 @@ export type MappedMoves = {
 }
 
 export type ChangeArgs = {
-    board: Board, piece: AssignedPiece, previousCoordinates: Coordinates, newCoordinates: Coordinates
+    relMove: Coordinates, // needed for castle change function
+    board: Board, // needed to check for king threats
+    piece: AssignedPiece,
+    previousCoordinates: Coordinates, 
+    newCoordinates: Coordinates
 }
 
 export type CreateChange = (args: ChangeArgs) => StateChange
