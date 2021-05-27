@@ -40,6 +40,7 @@ export enum Player {
 export type AssignedPiece = {
   owner: Player
   piece: Piece
+  enPassent: boolean
   moveCount: number
   svgURI: String
 }
@@ -59,6 +60,7 @@ function createAssignedPiece(owner: Player, piece: Piece): AssignedPiece {
   return {
     owner,
     piece,
+    enPassent: false,
     moveCount: 0,
     svgURI: require(`~/assets/pieces/${[Player[owner], Piece[piece]].join('-') + '.svg'}`)
 
