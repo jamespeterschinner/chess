@@ -50,9 +50,7 @@
 <script lang="ts">
 import { mapGetters } from 'vuex'
 import Vue from 'vue'
-import {Board,
-  Coordinates,
-} from '~/assets/src/types'
+import {Board, Coordinates} from '~/assets/src/types'
 
 export default Vue.extend({
   data() {

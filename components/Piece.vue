@@ -14,15 +14,11 @@ import Vue, { PropOptions, PropType } from 'vue'
 import { mapGetters } from 'vuex'
 import gsap from 'gsap'
 import { Draggable } from 'gsap/Draggable'
-import {
-  NonEmptySquare,
-  coordinatesToIndex,
-  Coordinates,
-  Board,
-} from '~/assets/src/board'
-import { relXYToCoordinates } from '~/assets/src/helpers'
+import { relXYToCoordinates, coordinatesToIndex } from '~/assets/src/helpers'
 import { possibleMovesThatDontThreatenKing } from '~/assets/src/moves'
-import {PossibleMove, MappedMoves} from '~/assets/src/types'
+import {PossibleMove, MappedMoves, NonEmptySquare,
+  
+  Coordinates,} from '~/assets/src/types'
 
 if (process.client) {
   gsap.registerPlugin(Draggable)
