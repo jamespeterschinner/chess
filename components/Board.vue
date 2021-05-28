@@ -3,6 +3,7 @@
     <svg
       :viewBox="`0 0 ${size} ${size}`"
       :width="`${size}px`"
+      :transform="`rotate(${rotation})`"
       xmlns="http://www.w3.org/2000/svg"
       dropzone
     >
@@ -12,7 +13,11 @@
           <rect class="light" x="1" y="1" width="1" height="1" />
         </pattern>
       </defs>
-      <Boarder :length="svgDim.boardSize" :radius="svgDim.radius" />
+      <Boarder
+        :length="svgDim.boardSize"
+        :radius="svgDim.radius"
+        :turn="turn"
+      />
       <!-- Using another viewBox allows alligning
       the piece coordinates with the chess board coordinates -->
       <svg
@@ -33,7 +38,8 @@
           :size="svgDim.squareSize"
           :square="square"
           @pieceSelected="pieceSelected"
-          @pieceDeselected='pieceDeselected'
+          @pieceDeselected="pieceDeselected"
+          :rotation="$data.rotation"
         />
 
         <MoveHighLight
@@ -50,17 +56,19 @@
 <script lang="ts">
 import { mapGetters } from 'vuex'
 import Vue from 'vue'
-import {Board, Coordinates} from '~/assets/src/types'
+import { Board, Coordinates } from '~/assets/src/types'
+import gsap, {Sine} from 'gsap'
 
 export default Vue.extend({
   data() {
     return {
       size: 500,
       moveHighLights: [],
+      rotation: 180,
     }
   },
   computed: {
-    ...mapGetters('board', ['squaresWithPieces']),
+    ...mapGetters('board', ['squaresWithPieces', 'turn']),
     svgDim() {
       const size = this.$data.size
       return {
@@ -81,6 +89,15 @@ export default Vue.extend({
     },
     pieceDeselected() {
       this.$data.moveHighLights = []
+    },
+  },
+  watch: {
+    turn(orientation) {
+      gsap.to(this.$data, {
+        duration: 0.5,
+        ease: Sine.easeIn,
+        rotation: orientation ? 0 : 1 * 180,
+      })
     },
   },
 })

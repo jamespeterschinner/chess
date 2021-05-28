@@ -72,9 +72,9 @@ export function coordinatesToInitialPiece({ file, row }: Coordinates, player: Pl
                 case 2:
                     return addPiece(Piece.Bishop)
                 case 3:
-                    return addPiece(Piece.Queen)
-                case 4:
                     return addPiece(Piece.King)
+                case 4:
+                    return addPiece(Piece.Queen)
                 case 5:
                     return addPiece(Piece.Bishop)
                 case 6:

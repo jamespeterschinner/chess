@@ -22,6 +22,7 @@ export const mutations = {
   },
   movePiece(state: Model, change: PieceMove): Model {
     state.boardState = applyChange(state.boardState, change)
+    state.turn = state.turn == Player.White? Player.Black : Player.White
     return state
   }
 }
@@ -32,5 +33,8 @@ export const getters = {
   },
   board(state: Model): Board {
     return state.boardState
+  },
+  turn(state: Model): Player {
+    return state.turn
   }
 }

@@ -94,7 +94,7 @@ export interface PieceMove extends ChangeArgs {
 }
 
 // The move logic is constructed in such a manner that Change args are passed to a function which generates 
-// Instructions for how to mutate the current board state. This is necessary as en passent, castling, queening  
+// Instructions for how to mutate the current board state. This is necessary as en passent, castling, queening 
 
 export type CreateChange = (args: ChangeArgs) => PieceMove
 

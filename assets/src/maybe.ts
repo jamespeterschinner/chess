@@ -1,3 +1,5 @@
+import { MaybeEmptySquare } from "./types"
+
 export type Just<T> = [NonNullable<T>]
 
 export const nothing = []
@@ -30,4 +32,9 @@ export function filter<T>(a: Maybe<T>[]): T[] {
 export function defaultMapUnwrap<T, D>(t: Maybe<T>, f: (t: T, index?: number) => D, d: D): D {
     let maybeResult = map(t, f)
     return isJust(maybeResult) ? unwrap(maybeResult) : d
+}
+
+type myContainer = {
+    name: string,
+    middleName: Maybe<string>
 }

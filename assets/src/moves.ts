@@ -299,7 +299,6 @@ export function possibleMovesThatDontThreatenKing(args: Omit<PredicateArgs, 'rel
             }
         })
     }
-    console.log('moves', moves)
     return moves
 }
 
