@@ -16,9 +16,10 @@ import gsap from 'gsap'
 import { Draggable } from 'gsap/Draggable'
 import { relXYToCoordinates, coordinatesToIndex } from '~/assets/src/helpers'
 import { possibleMovesThatDontThreatenKing } from '~/assets/src/moves'
-import {PossibleMove, MappedMoves, NonEmptySquare,
+import { PieceMove, MappedMoves, NonEmptySquare,
   
-  Coordinates,} from '~/assets/src/types'
+  Coordinates,
+  Piece,} from '~/assets/src/types'
 
 if (process.client) {
   gsap.registerPlugin(Draggable)
@@ -49,19 +50,15 @@ export default Vue.extend({
   methods: {
     // This can't be cached as the board can change state with out the piece being
     // rerendered
-    _possibleMoves(): PossibleMove[] {
+    _possibleMoves(): PieceMove[] {
       return possibleMovesThatDontThreatenKing({ square: this.$props.square, board: this.board })
     },
     moves(): Coordinates[] {
-      return this._possibleMoves().map(function ([coordinate]) {
-        return coordinate
-      })
+      return this._possibleMoves().map(({newCoordinates}: PieceMove) => newCoordinates)
     },
     mappedMoves(): MappedMoves {
       return Object.fromEntries(
-        this._possibleMoves().map(function ([coordinate, stateChange]) {
-          return [JSON.stringify(coordinate), stateChange]
-        })
+        this._possibleMoves().map(pieceMove => ([JSON.stringify(pieceMove.newCoordinates), pieceMove]))
       )
     },
   },

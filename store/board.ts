@@ -1,7 +1,7 @@
 import {initialBoard, getSquaresWithPieces,} from '~/assets/src/helpers'
 import { applyChange } from '~/assets/src/moves'
 import {
-  StateChange, Model,
+  PieceMove, Model,
   Player, AssignedPiece,
   Square,
   Board
@@ -20,7 +20,7 @@ export const mutations = {
       boardState: initialBoard,
     }
   },
-  movePiece(state: Model, change: StateChange): Model {
+  movePiece(state: Model, change: PieceMove): Model {
     state.boardState = applyChange(state.boardState, change)
     return state
   }

@@ -79,20 +79,7 @@ export type Path = Coordinates[]
 
 export type PredicateFunc = (args: PredicateArgs) => boolean
 
-
-export type StateChange = {
-    overwrite: { index: Index, piece: AssignedPiece }[]
-    remove: Index[]
-    possiblyEnPassentable: Index[]
-}
-
-export type PossibleMove = [Coordinates, StateChange]
-
-export type MappedMoves = {
-    [key: string]: StateChange
-}
-
-export type ChangeArgs = {
+export interface ChangeArgs {
     relMove: Coordinates, // needed for castle change function
     board: Board, // needed to check for king threats
     piece: AssignedPiece,
@@ -100,4 +87,21 @@ export type ChangeArgs = {
     newCoordinates: Coordinates
 }
 
-export type CreateChange = (args: ChangeArgs) => StateChange
+export interface PieceMove extends ChangeArgs {
+    overwrite: { index: Index, piece: AssignedPiece }[]
+    remove: Index[]
+    possiblyEnPassentable: Index[]
+}
+
+// The move logic is constructed in such a manner that Change args are passed to a function which generates 
+// Instructions for how to mutate the current board state. This is necessary as en passent, castling, queening  
+
+export type CreateChange = (args: ChangeArgs) => PieceMove
+
+export type MappedMoves = {
+    [key: string]: PieceMove
+}
+
+
+
+
