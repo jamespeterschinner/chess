@@ -6,7 +6,7 @@
       :width="size"
       :x="x"
       :y="y"
-      :transform="`rotate(${rotation}, ${x + (size/ 2)}, ${y + (size /2)})`"
+      :transform="`rotate(${rotation}, ${x + size / 2}, ${y + size / 2})`"
     />
   </g>
 </template>
@@ -19,11 +19,11 @@ import { Draggable } from 'gsap/Draggable'
 import { relXYToCoordinates, coordinatesToIndex } from '~/assets/src/helpers'
 import { possibleMovesThatDontThreatenKing } from '~/assets/src/moves'
 import {
-  PieceMove,
   MappedMoves,
   NonEmptySquare,
   Player,
-  Coordinates
+  Coordinates,
+  Move,
 } from '~/assets/src/types'
 
 if (process.client) {
@@ -43,7 +43,7 @@ export default Vue.extend({
     rotation: {
       type: Number,
       required: true,
-    }
+    },
   },
   data() {
     return {
@@ -52,43 +52,40 @@ export default Vue.extend({
     }
   },
   computed: {
-    ...mapGetters('board', ['board']),
+    ...mapGetters('board', ['board', 'turn']),
     domElement(): Element {
       return this.$refs.piece as Element
     },
-    file(): number{
+    file(): number {
       return this.$props.square.coordinates.file
     },
-    row(): number{
+    row(): number {
       return this.$props.square.coordinates.row
     },
-    x(): number{
+    x(): number {
       return this.file * this.$props.size
     },
-    y(): number{
+    y(): number {
       return this.row * this.$props.size
-    }
-    
+    },
   },
   methods: {
     // This can't be cached as the board can change state with out the piece being
     // rerendered
-    _possibleMoves(): PieceMove[] {
+    _possibleMoves(): Move[] {
       return possibleMovesThatDontThreatenKing({
         square: this.$props.square,
         board: this.board,
       })
     },
     moves(): Coordinates[] {
-      return this._possibleMoves().map(
-        ({ newCoordinates }: PieceMove) => newCoordinates
-      )
+      return this._possibleMoves().map(({ coordinates }) => coordinates)
     },
     mappedMoves(): MappedMoves {
       return Object.fromEntries(
-        this._possibleMoves().map((pieceMove) => [
-          JSON.stringify(pieceMove.newCoordinates),
-          pieceMove,
+        this._possibleMoves().map(({ coordinates, board }) => [
+          JSON.stringify(coordinates),
+          board,
         ])
       )
     },
@@ -97,11 +94,11 @@ export default Vue.extend({
   mounted() {
     const target = this.domElement
     const scale = this.$props.size
-    const square = this.$props.square
     const offsetCoordinates = this.$props.square.coordinates
     const store = this.$store
     const moves = this.moves
     const mappedMoves = this.mappedMoves
+    const isturn = () => this.turn == this.square.piece.owner
 
     // Options for the draggable object that need to emit events
     // need to be specified outside of the Draggable constructor
@@ -118,24 +115,26 @@ export default Vue.extend({
       onPress,
 
       onRelease(event: Event) {
-        const droppedCoordinates = relXYToCoordinates(
-          scale,
-          offsetCoordinates,
-          this.x,
-          this.y
-        )
-        const droppedIndex = coordinatesToIndex(droppedCoordinates)
-
-        let stageChange = mappedMoves()[JSON.stringify(droppedCoordinates)]
-        // Using index for equality to avoid object comparison
-        if (stageChange) {
-          // A valid move was made
-          store.commit('board/movePiece', stageChange)
-        } else {
-          // No valid move was made, return piece to initial position
-          gsap.set(target, { x: 0, y: 0 })
-        }
         pieceDeselected()
+        if (isturn()) {
+          const droppedCoordinates = relXYToCoordinates(
+            scale,
+            offsetCoordinates,
+            this.x,
+            this.y
+          )
+          const droppedIndex = coordinatesToIndex(droppedCoordinates)
+
+          let newBoard = mappedMoves()[JSON.stringify(droppedCoordinates)]
+          // Using index for equality to avoid object comparison
+          if (newBoard) {
+            // A valid move was made
+            store.commit('board/makeMove', newBoard)
+            return
+          }
+        } 
+        // No valid move was made, return piece to initial position
+          gsap.set(target, { x: 0, y: 0 })
       },
     })
   },

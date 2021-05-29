@@ -74,7 +74,6 @@ export enum RookType {
     Queens
 }
 
-
 export type Path = Coordinates[]
 
 export type PredicateFunc = (args: PredicateArgs) => boolean
@@ -83,23 +82,28 @@ export interface ChangeArgs {
     relMove: Coordinates, // needed for castle change function
     board: Board, // needed to check for king threats
     piece: AssignedPiece,
-    previousCoordinates: Coordinates, 
+    previousCoordinates: Coordinates,
     newCoordinates: Coordinates
 }
 
-export interface PieceMove extends ChangeArgs {
+export interface PossibleMove extends ChangeArgs {
     overwrite: { index: Index, piece: AssignedPiece }[]
     remove: Index[]
     possiblyEnPassentable: Index[]
 }
 
+export interface Move {
+    coordinates: Coordinates,
+    relMove: Coordinates,
+    board: Board
+}
 // The move logic is constructed in such a manner that Change args are passed to a function which generates 
 // Instructions for how to mutate the current board state. This is necessary as en passent, castling, queening 
 
-export type CreateChange = (args: ChangeArgs) => PieceMove
+export type CreateChange = (args: ChangeArgs) => PossibleMove
 
 export type MappedMoves = {
-    [key: string]: PieceMove
+    [key: string]: Board
 }
 
 

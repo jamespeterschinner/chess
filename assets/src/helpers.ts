@@ -47,6 +47,11 @@ export function indexToCoordinates(index: number): Coordinates {
     }
 }
 
+export function invertOrientation(coordinates: Coordinates) {
+    // Used to invert black moves
+    return { file: coordinates.file, row: coordinates.row * -1 }
+}
+
 export const rowToAssignedPlayer = (row: number): Maybe<Player> => {
     if (row <= 1) {
         return just(Player.White)
@@ -178,4 +183,52 @@ export function getPieceFromRelativeCoordinates(args: PredicateArgs): Maybe<Assi
         square => square.piece,
         nothing
     )
+}
+
+
+export function toNonEmptySquare(maybeEmptySquare: MaybeEmptySquare): Maybe<NonEmptySquare> {
+    return defaultMapUnwrap(
+        maybeEmptySquare.piece,
+        assignedPiece => { return just({ ...maybeEmptySquare, piece: assignedPiece }) },
+        nothing
+    )
+}
+
+export function getRookCoordinates(relFile: number, player: Player): Coordinates {
+    // Not the current rook coordinates, but the initial coordinates
+    return (relFile > 0) ?
+        { [Player.White]: { file: 7, row: 0 }, [Player.Black]: { file: 7, row: 7 } }[player]
+        : { [Player.White]: { file: 0, row: 0 }, [Player.Black]: { file: 0, row: 7 } }[player]
+}
+
+export function getKingsCoordinates(board: Board, player: Player): Maybe<Coordinates> {
+    for (let square of board) {
+        let coordinates = defaultMapUnwrap(square.piece, piece => {
+            return (piece.piece == Piece.King && piece.owner == player) ?
+                just(square.coordinates)
+                : nothing
+        }, nothing)
+        if (isJust(coordinates)) {
+            return coordinates
+        }
+    }
+    return nothing
+}
+
+export function enableEnPassent(square: MaybeEmptySquare): MaybeEmptySquare {
+    return {
+        ...square, piece: map(square.piece, assignedPiece => {
+            return assignedPiece.piece == Piece.Pawn ?
+                { ...assignedPiece, enPassent: true }
+                : assignedPiece
+        })
+    }
+}
+
+export function disableEnPassent(square: MaybeEmptySquare): MaybeEmptySquare {
+    return {
+        ...square, piece: map(square.piece, assignedPiece => {
+            return { ...assignedPiece, enPassent: false }
+        })
+    }
 }

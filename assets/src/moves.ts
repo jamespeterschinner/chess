@@ -3,17 +3,25 @@ import {
     getSquareFromRelativeCoordinates, getPieceFromRelativeCoordinates, moveTowards,
     addCoordinates,
     getPieceFromCoordinates,
-    bounds,
-    indexToCoordinates,
-    stepTowards
+    toNonEmptySquare,
+    stepTowards,
+    getRookCoordinates,
+    invertOrientation,
+    getKingsCoordinates,
+    enableEnPassent,
+    disableEnPassent
 } from './helpers'
 import { Maybe, isJust, nothing, just, filter, defaultMapUnwrap, map, unwrap, Just } from './maybe'
 import {
-    MaybeEmptySquare, NonEmptySquare, Piece, Player, AssignedPiece,
-    Board, Coordinates, PredicateArgs, RookType, Index,
-    CreateChange, PredicateFunc, ChangeArgs, PieceMove
+    MaybeEmptySquare, Piece, Player, AssignedPiece,
+    Board, Coordinates, PredicateArgs, Index,
+    CreateChange, PredicateFunc, ChangeArgs, PossibleMove, Move
 } from './types'
 
+/* 
+These function are used as preicates to validate whether a move in question can be performed. 
+They are composed together to create more complex rules.
+*/
 
 function squareOccupied(coordinates: Coordinates, board: Board): boolean {
     return defaultMapUnwrap(
@@ -44,26 +52,10 @@ function firstMove({ square }: PredicateArgs): boolean {
     return square.piece.moveCount == 0 ? true : false
 }
 
-function toNonEmptySquare(maybeEmptySquare: MaybeEmptySquare): Maybe<NonEmptySquare> {
-    return defaultMapUnwrap(
-        maybeEmptySquare.piece,
-        assignedPiece => { return just({ ...maybeEmptySquare, piece: assignedPiece }) },
-        nothing
-    )
-}
-
 function oppositeColourPiece({ square, board, relMove }: PredicateArgs): boolean {
     let maybePiece = getPieceFromRelativeCoordinates({ square, board, relMove })
     return defaultMapUnwrap(maybePiece, piece => piece.owner != square.piece.owner, false)
 
-}
-
-
-function getRookCoordinates(relFile: number, player: Player): Coordinates {
-    // Not the current rook coordinates, but the initial coordinates
-    return (relFile > 0) ?
-        { [Player.White]: { file: 7, row: 0 }, [Player.Black]: { file: 7, row: 7 } }[player]
-        : { [Player.White]: { file: 0, row: 0 }, [Player.Black]: { file: 0, row: 7 } }[player]
 }
 
 function rookNotMoved({ square, board, relMove }: PredicateArgs): boolean {
@@ -75,6 +67,8 @@ function rookNotMoved({ square, board, relMove }: PredicateArgs): boolean {
 }
 
 function enPassentPredicate({ square, board, relMove: move }: PredicateArgs): boolean {
+    // En passent is only allowed for one move implicitly, as the `piece.enpassent` flag is
+    // reset on every move, unless it it set for that move.
     let maybePiece = getPieceFromRelativeCoordinates({ square, board, relMove: { ...move, row: 0 } })
     return defaultMapUnwrap(maybePiece,
         piece => {
@@ -88,15 +82,20 @@ function enPassentPredicate({ square, board, relMove: move }: PredicateArgs): bo
         , false)
 }
 
+/* 
+You can think of this as the heart of the move logic. 
 
-function invertOrientation(coordinates: Coordinates) {
-    return { file: coordinates.file, row: coordinates.row * -1 }
-}
+    This function allows us to compose together:
+        1. A move in relative coordinates to the current pieces position
+        2. How to update the board state if the move is performed
+        3. A list of predicates that must all be true for the move to be valid
+    
+    The function is curried allowing us to specify the move with out knowing the actual position
+    of the piece or board configuration.
 
-// type PredicateMoves = (args: PredicateArgs) => Maybe<PossibleMove>[]
-
+*/
 const predicatedMove = (relMove: Coordinates, change: CreateChange, predicates: PredicateFunc[]) =>
-    (args: Omit<PredicateArgs, 'relMove'>): Maybe<PieceMove> => {
+    (args: Omit<PredicateArgs, 'relMove'>): Maybe<PossibleMove> => {
 
         // Allows all moves to be defined in the perspective of white
         let orientatedMove = (args.square.piece.owner == Player.Black) ?
@@ -114,7 +113,13 @@ const predicatedMove = (relMove: Coordinates, change: CreateChange, predicates: 
             : nothing
     }
 
-function defaultChange(changeArgs: ChangeArgs): PieceMove {
+/*
+These functions (ending in ...Change) define how to update the board state. The defaultChange 
+does what you expect. It creates instructions telling the update function to move the piece from 
+where it started to where it was dropped. This applies to most moves apart from en passent and castling
+that require there own instruction for how to perform the move.
+*/
+function defaultChange(changeArgs: ChangeArgs): PossibleMove {
     return {
         ...changeArgs,
         overwrite: [{ piece: changeArgs.piece, index: coordinatesToIndex(changeArgs.newCoordinates) }],
@@ -123,7 +128,7 @@ function defaultChange(changeArgs: ChangeArgs): PieceMove {
     }
 }
 
-function enableEnPassentChange(args: ChangeArgs): PieceMove {
+function enableEnPassentChange(args: ChangeArgs): PossibleMove {
     // When a pawn moves two squares next to the other players pawn
     return {
         ...defaultChange(args),
@@ -137,7 +142,7 @@ function enableEnPassentChange(args: ChangeArgs): PieceMove {
     }
 }
 
-function enPassentChange(args: ChangeArgs): PieceMove {
+function enPassentChange(args: ChangeArgs): PossibleMove {
     // The actual en passent move, pawn taking opponents pawn behind it
     let change = defaultChange(args)
     return {
@@ -148,7 +153,7 @@ function enPassentChange(args: ChangeArgs): PieceMove {
     }
 }
 
-function castleChange(args: ChangeArgs): PieceMove {
+function castleChange(args: ChangeArgs): PossibleMove {
     let change = defaultChange(args)
     let newRookIndex = coordinatesToIndex(moveTowards(args.newCoordinates, args.previousCoordinates))
     let oldRookCoordinates = getRookCoordinates(args.relMove.file, args.piece.owner)
@@ -164,6 +169,9 @@ function castleChange(args: ChangeArgs): PieceMove {
     }
 }
 
+/* 
+Here we define all the moves that pieces can make. They are created by composing the above functions
+*/
 const pawnMoves = [
     // single square forward
     predicatedMove({ file: 0, row: 1 }, defaultChange, [pathClear]),
@@ -188,15 +196,22 @@ const singleKingMoves = [[-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1,
     .map(function ([file, row]) { return predicatedMove({ file, row }, defaultChange, [notOccupiedByOwnPiece]) });
 
 const castleMoves = [
-    // 
+    // You may notice that `notCheck` is absent from the move predicates. The `notCheck` predicate
+    // requires generation of all the opponents moves, which requires a call to `possibleMoves` which will
+    // eventually result in calls to these functions, creating circular infinite recursion of hell!
+    // Instead it is filtered out after all the moves have been generated.
     predicatedMove({ file: -2, row: 0 }, castleChange, [pathClear, firstMove, rookNotMoved]),
     predicatedMove({ file: 2, row: 0 }, castleChange, [pathClear, firstMove, rookNotMoved])
 ]
 
 const kingMoves = [singleKingMoves, castleMoves].flat()
 
-function generateMovesInDirection(direction: Coordinates, { board, square }: Omit<PredicateArgs, 'relMove'>): PieceMove[] {
-    type T = Maybe<PieceMove>
+
+function generateMovesInDirection(direction: Coordinates, { board, square }: Omit<PredicateArgs, 'relMove'>): PossibleMove[] {
+    // Moves for pieces that move any amount of squares in a direction can't be specified ahead of time 
+    // (well not easily) and it would be unintuitive, how WOULD you explain a queen move to a human?
+    // Hence they are calculated at runtime.
+    type T = Maybe<PossibleMove>
     function* moveGenerator(): Generator<T, any, T> {
         let offset = direction
         while (true) {
@@ -204,7 +219,7 @@ function generateMovesInDirection(direction: Coordinates, { board, square }: Omi
             offset = addCoordinates(offset, direction)
         }
     }
-    let moves: PieceMove[] = [], moveGen = moveGenerator(), currentMove: T = moveGen.next().value
+    let moves: PossibleMove[] = [], moveGen = moveGenerator(), currentMove: T = moveGen.next().value
     while (isJust(currentMove)) {
         map(currentMove, move => moves.push(move))
         currentMove = moveGen.next().value
@@ -213,7 +228,7 @@ function generateMovesInDirection(direction: Coordinates, { board, square }: Omi
 
 }
 
-function generateOrthogonalMoves(args: Omit<PredicateArgs, 'relMove'>): PieceMove[] {
+function generateRookMoves(args: Omit<PredicateArgs, 'relMove'>): PossibleMove[] {
     return [
         generateMovesInDirection({ file: 0, row: 1 }, args),
         generateMovesInDirection({ file: 0, row: -1 }, args),
@@ -223,7 +238,7 @@ function generateOrthogonalMoves(args: Omit<PredicateArgs, 'relMove'>): PieceMov
     ].flat()
 }
 
-function generateDiagonalMoves(args: Omit<PredicateArgs, 'relMove'>): PieceMove[] {
+function generateBishopMoves(args: Omit<PredicateArgs, 'relMove'>): PossibleMove[] {
     return [
         generateMovesInDirection({ file: 1, row: 1 }, args),
         generateMovesInDirection({ file: -1, row: -1 }, args),
@@ -233,21 +248,20 @@ function generateDiagonalMoves(args: Omit<PredicateArgs, 'relMove'>): PieceMove[
     ].flat()
 }
 
-export function possibleMoves(args: Omit<PredicateArgs, 'relMove'>): PieceMove[] {
+export function possibleMoves(args: Omit<PredicateArgs, 'relMove'>): PossibleMove[] {
     switch (args.square.piece.piece) {
         case Piece.Pawn: return filter(pawnMoves.map(func => func(args)))
         case Piece.Knight: return filter(knightMoves.map(func => func(args)))
         case Piece.King: return filter(kingMoves.map(func => func(args)))
-        case Piece.Bishop: return generateDiagonalMoves(args)
-        case Piece.Rook: return generateOrthogonalMoves(args)
-        case Piece.Queen: return [generateDiagonalMoves(args), generateOrthogonalMoves(args)].flat()
+        case Piece.Bishop: return generateBishopMoves(args)
+        case Piece.Rook: return generateRookMoves(args)
+        case Piece.Queen: return [generateBishopMoves(args), generateRookMoves(args)].flat()
         default: return []
     }
-
 }
 
 
-function listOpponentsMoves({ square: moveSquare, board }: Omit<PredicateArgs, 'relMove'>): PieceMove[] {
+function listOpponentsMoves({ square: moveSquare, board }: Omit<PredicateArgs, 'relMove'>): PossibleMove[] {
     return board.filter(square => defaultMapUnwrap(square.piece, piece => piece.owner != moveSquare.piece.owner, false))
         .map(toNonEmptySquare)
         .filter(isJust)
@@ -256,20 +270,9 @@ function listOpponentsMoves({ square: moveSquare, board }: Omit<PredicateArgs, '
         .flat()
 }
 
-function getKingsCoordinates(board: Board, player: Player): Maybe<Coordinates> {
-    for (let square of board) {
-        let coordinates = defaultMapUnwrap(square.piece, piece => {
-            return (piece.piece == Piece.King && piece.owner == player) ?
-                just(square.coordinates)
-                : nothing
-        }, nothing)
-        if (isJust(coordinates)) {
-            return coordinates
-        }
-    }
-    return nothing
-}
 
+
+// Same function signature as the move predicates, but can't be used as a predicate due to infinite recursion.
 function notCheck(args: Omit<PredicateArgs, 'relMove'>): boolean {
     // Generate a list of index's that the opposite player could move to (on then next turn) if the current move
     // in consideration is played
@@ -280,47 +283,7 @@ function notCheck(args: Omit<PredicateArgs, 'relMove'>): boolean {
     return defaultMapUnwrap(maybeKingsIndex, kingsIndex => opponentMoveIndexes.every(index => index != kingsIndex), false)
 }
 
-export function possibleMovesThatDontThreatenKing(args: Omit<PredicateArgs, 'relMove'>): PieceMove[] {
-    let moves = possibleMoves(args).filter(stateChange => {
-        let boardStateAfterMove = applyChange(args.board, stateChange)
-        return notCheck({ ...args, board: boardStateAfterMove })
-    })
-
-    // This is an optimisation for the castling rules. It's simpler to remove the possibility to castle
-    // if the king can't move one square in the castling direction. Trying to do this in the predicate logic 
-    // results in deep recursion
-    if (args.square.piece.piece == Piece.King) {
-        moves = moves.filter(stateChange => {
-            if (Math.abs(stateChange.relMove.file) == 2) {
-                // The move in consideration is castling
-                return moves.some(m => m.relMove.file == stepTowards(stateChange.relMove.file, 0))
-            } else {
-                return true
-            }
-        })
-    }
-    return moves
-}
-
-let enableEnPassent = (square: MaybeEmptySquare): MaybeEmptySquare => {
-    return {
-        ...square, piece: map(square.piece, assignedPiece => {
-            return assignedPiece.piece == Piece.Pawn ?
-                { ...assignedPiece, enPassent: true }
-                : assignedPiece
-        })
-    }
-}
-
-let disableEnPassent = (square: MaybeEmptySquare): MaybeEmptySquare => {
-    return {
-        ...square, piece: map(square.piece, assignedPiece => {
-            return { ...assignedPiece, enPassent: false }
-        })
-    }
-}
-
-export function applyChange(board: Board, { overwrite, remove, possiblyEnPassentable }: PieceMove): Board {
+function applyChange(board: Board, { overwrite, remove, possiblyEnPassentable }: PossibleMove): Board {
     return board.map((square: MaybeEmptySquare, idx: Index): MaybeEmptySquare => {
         for (let { index, piece } of overwrite) {
             if (index == idx) {
@@ -329,7 +292,6 @@ export function applyChange(board: Board, { overwrite, remove, possiblyEnPassent
                 }
             }
         }
-
         if (remove.some(rm => rm == idx)) {
             return { ...square, piece: nothing }
         } else if (possiblyEnPassentable.some(en => en == idx)) {
@@ -339,4 +301,30 @@ export function applyChange(board: Board, { overwrite, remove, possiblyEnPassent
         }
     })
 }
+
+export function possibleMovesThatDontThreatenKing(args: Omit<PredicateArgs, 'relMove'>): Move[] {
+    let moves: Move[] =
+        possibleMoves(args).map(stateChange =>
+        ({ coordinates: stateChange.newCoordinates, relMove: stateChange.relMove, board: applyChange(args.board, stateChange) }
+        )).filter(({ board }) => notCheck({ ...args, board }))
+
+    // This is an optimisation for the castling rules. It's simpler to remove the possibility to castle
+    // if the king can't move one square in the castling direction. Trying to do this in the predicate logic 
+    // can end up in infine recursion
+    if (args.square.piece.piece == Piece.King) {
+        moves = moves.filter(({ relMove, board }: Move) => {
+            if(Math.abs(relMove.file) == 2) {
+                // The move in consideration is castling. Can castle if the square inbetween it's current 
+                // location and destination is not controlled by the opponent and not currently in check
+                return moves.some(({ relMove: otherMove }) => otherMove.file == stepTowards(relMove.file, 0)) && notCheck(args)
+            } else {
+                return true
+            }
+    })
+}
+return moves
+}
+
+
+
 
