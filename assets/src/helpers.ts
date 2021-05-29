@@ -27,7 +27,7 @@ export function createAssignedPiece(owner: Player, piece: Piece): AssignedPiece 
         piece,
         enPassent: false,
         moveCount: 0,
-        svgURI: require(`~/assets/pieces/${[Player[owner], Piece[piece]].join('-') + '.svg'}`)
+        svgURI: require(`~/static/pieces/${[Player[owner], Piece[piece]].join('-') + '.svg'}`)
     }
 }
 

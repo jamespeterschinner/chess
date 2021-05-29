@@ -1,5 +1,15 @@
 # chess
 
+![screenshot of chess board](./screenshot.PNG)
+
+A simple pass and play chess game.
+
+The chess engine is implemented in TypeScript using a naive offset mailbox pattern, using purely functional
+programming techniques.
+
+The curious reader can discover other (more optimal) solutions to the problem at https://www.chessprogramming.org/Main_Page
+
+
 ## Build Setup
 
 ```bash
