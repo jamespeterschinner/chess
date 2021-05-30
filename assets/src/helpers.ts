@@ -4,7 +4,7 @@ import {
 } from './maybe'
 import {
     Board, AssignedPiece, Square, Coordinates,
-    Index, NonEmptySquare, MaybeEmptySquare, PredicateArgs
+    Index, NonEmptySquare, MaybeEmptySquare, PredicateArgs, PromotableTo
 } from './types'
 
 enum Player {
@@ -21,13 +21,24 @@ enum Piece {
     Pawn,
 }
 
+
+function generatePieceURI(player: string, piece: string) {
+    return `/pieces/${[player, piece].join('-') + '.svg'}`
+}
+
+const namedValues = (object: Object): string[] => Object.values(object).filter(item => typeof item == 'string')
+
+const pieceSVGUri = Object.fromEntries(
+    namedValues(Player).map(player => namedValues(Piece).map(piece => [`${player}${piece}`, generatePieceURI(player, piece)])).flat()
+)
+
 export function createAssignedPiece(owner: Player, piece: Piece): AssignedPiece {
     return {
         owner,
         piece,
         enPassent: false,
         moveCount: 0,
-        svgURI: require(`~/static/pieces/${[Player[owner], Piece[piece]].join('-') + '.svg'}`)
+        svgURI: pieceSVGUri[`${Player[owner]}${Piece[piece]}`]
     }
 }
 
@@ -95,9 +106,9 @@ export function coordinatesToInitialPiece({ file, row }: Coordinates, player: Pl
 export const initialBoard = emptyBoard.map(
     (square: Square<Nothing>): Square<Maybe<AssignedPiece>> => {
         return {
-            ...square, piece: 
+            ...square, piece:
                 map(rowToAssignedPlayer(square.coordinates.row),
-                    (player: Player) => {return coordinatesToInitialPiece(square.coordinates, player)})
+                    (player: Player) => { return coordinatesToInitialPiece(square.coordinates, player) })
         }
     }
 )
@@ -231,4 +242,11 @@ export function disableEnPassent(square: MaybeEmptySquare): MaybeEmptySquare {
             return { ...assignedPiece, enPassent: false }
         })
     }
+}
+
+export function getPromotablePieces(player: Player): AssignedPiece[] {
+    return [Piece.Queen, Piece.Rook, Piece.Bishop, Piece.Knight].map(
+        piece => createAssignedPiece(player, piece)
+    )
+
 }

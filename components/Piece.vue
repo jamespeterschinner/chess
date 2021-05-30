@@ -24,6 +24,9 @@ import {
   Player,
   Coordinates,
   Move,
+  Piece,
+  Board,
+  EmittedMove,
 } from '~/assets/src/types'
 
 if (process.client) {
@@ -98,6 +101,8 @@ export default Vue.extend({
     const store = this.$store
     const moves = this.moves
     const mappedMoves = this.mappedMoves
+    const assignedPiece = this.square.piece
+    const emit = this.$emit
     const isturn = () => this.turn == this.square.piece.owner
 
     // Options for the draggable object that need to emit events
@@ -109,6 +114,18 @@ export default Vue.extend({
 
     const pieceDeselected = () => {
       this.$emit('pieceDeselected')
+    }
+
+    const emitMove = (
+      droppedCoordinates: Coordinates,
+      newBoard: Board,
+      isPromotion: boolean
+    ) => {
+      this.$emit('pieceMoved', {
+        coordinates: droppedCoordinates,
+        board: newBoard,
+        pawnPromotion: isPromotion,
+      } as EmittedMove)
     }
 
     this.$data.draggable = Draggable.create(target, {
@@ -129,12 +146,18 @@ export default Vue.extend({
           // Using index for equality to avoid object comparison
           if (newBoard) {
             // A valid move was made
-            store.commit('board/makeMove', newBoard)
-            return
+            let pawnPromotion = false
+            if (
+              assignedPiece.piece == Piece.Pawn &&
+              (droppedCoordinates.row == 0 || droppedCoordinates.row == 7)
+            ) {
+              pawnPromotion = true
+            }
+            emitMove(droppedCoordinates, newBoard, pawnPromotion)
           }
-        } 
+        }
         // No valid move was made, return piece to initial position
-          gsap.set(target, { x: 0, y: 0 })
+        gsap.set(target, { x: 0, y: 0 })
       },
     })
   },

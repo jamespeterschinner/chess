@@ -40,6 +40,8 @@
           @pieceSelected="pieceSelected"
           @pieceDeselected="pieceDeselected"
           :rotation="$data.rotation"
+          @pieceMoved="pieceMoved"
+          
         />
 
         <MoveHighLight
@@ -50,27 +52,44 @@
         />
       </svg>
     </svg>
+    <PromotionChoice
+      v-if="isJust(promotionSquare)"
+      :rotation="rotation"
+      :size="svgDim.squareSize"
+      @promotionSelected="promotionSelected"
+    />
   </div>
 </template>
 
 <script lang="ts">
 import { mapGetters } from 'vuex'
 import Vue from 'vue'
-import { Board, Coordinates } from '~/assets/src/types'
-import gsap, {Sine} from 'gsap'
+import {
+  AssignedPiece,
+  Board,
+  Coordinates,
+  EmittedMove,
+  MaybeEmptySquare,
+} from '~/assets/src/types'
+import gsap, { Sine } from 'gsap'
+import PromotionChoice from './PromotionChoice.vue'
+import { defaultMapUnwrap, isJust, just, nothing } from '~/assets/src/maybe'
+import { coordinatesToIndex } from '~/assets/src/helpers'
 
 export default Vue.extend({
+  components: { PromotionChoice },
   data() {
     return {
-      size: 500,
       moveHighLights: [],
       rotation: 180,
+      promotionSquare: nothing,
+      isJust: isJust
     }
   },
   computed: {
-    ...mapGetters('board', ['squaresWithPieces', 'turn']),
+    ...mapGetters('board', ['board', 'squaresWithPieces', 'turn', 'size']),
     svgDim() {
-      const size = this.$data.size
+      const size = this.size
       return {
         boardOffset: size * -0.1,
         boardSize: size * 0.8,
@@ -80,24 +99,57 @@ export default Vue.extend({
     },
   },
   methods: {
-    board(): Board {
-      // If used as a getter typescript doesn't infer return type
-      return this.$store.state.board.boardState
-    },
-    pieceSelected(moveHighLights: Coordinates[]) {
+    pieceSelected(moveHighLights: Coordinates[]): void {
       this.$data.moveHighLights = moveHighLights
     },
-    pieceDeselected() {
+    pieceDeselected(): void {
       this.$data.moveHighLights = []
+    },
+    pieceMoved({ coordinates, board, pawnPromotion }: EmittedMove): void {
+  
+      if (isJust(this.$data.promotionSquare)) {
+        // Guard against making two moves
+        return
+      }
+      if (pawnPromotion) {
+        this.$data.promotionSquare = just(coordinates)
+        this.$store.commit('board/makeMove', { board, changeTurn: false })
+      } else {
+        this.$store.commit('board/makeMove', { board, changeTurn: true })
+      }
+    },
+    promotionSelected(piece: AssignedPiece) {
+
+      // Out of bounds if nothing to update
+      let updateIndex = defaultMapUnwrap(
+        this.$data.promotionSquare,
+        coordinatesToIndex,
+        65
+      )
+      this.$store.commit('board/makeMove', {
+        board: this.board.map((square: MaybeEmptySquare, index: number) => {
+          if (index == updateIndex) {
+            return { ...square, piece: just(piece) }
+          } else {
+            return square
+          }
+        }),
+        changeTurn: true,
+      })
+      this.$data.promotionSquare = nothing
     },
   },
   watch: {
     turn(orientation) {
-      gsap.to(this.$data, {
-        duration: 0.5,
-        ease: Sine.easeIn,
-        rotation: orientation ? 0 : 1 * 180,
-      })
+      setTimeout(
+        () =>
+          gsap.to(this.$data, {
+            duration: 0.5,
+            ease: Sine.easeIn,
+            rotation: orientation ? 0 : 1 * 180,
+          }),
+        200
+      )
     },
   },
 })

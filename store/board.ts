@@ -1,4 +1,4 @@
-import {initialBoard, getSquaresWithPieces,} from '~/assets/src/helpers'
+import { initialBoard, getSquaresWithPieces, } from '~/assets/src/helpers'
 import {
   PossibleMove, Model,
   Player, AssignedPiece,
@@ -11,6 +11,7 @@ import {
 export const state = (): Model => ({
   turn: Player.White,
   boardState: initialBoard,
+  size: 500
 })
 
 export const mutations = {
@@ -18,11 +19,14 @@ export const mutations = {
     return {
       turn: Player.White,
       boardState: initialBoard,
+      size: 500
     }
   },
-  makeMove(state: Model, board: Board): Model {
+  makeMove(state: Model, { board, changeTurn }: { board: Board, changeTurn: boolean }): Model {
     state.boardState = board
-    state.turn = state.turn == Player.White? Player.Black : Player.White
+    if (changeTurn) {
+      state.turn = state.turn == Player.White ? Player.Black : Player.White
+    }
     return state
   }
 }
@@ -36,5 +40,8 @@ export const getters = {
   },
   turn(state: Model): Player {
     return state.turn
+  },
+  size(state: Model): number {
+    return state.size
   }
 }

@@ -32,6 +32,13 @@ export enum Piece {
     Pawn,
 }
 
+export enum PromotableTo {
+    Queen,
+    Rook,
+    Bishop,
+    Knight,
+}
+
 export enum Player {
     White,
     Black,
@@ -67,6 +74,7 @@ export interface PredicateArgs {
 export type Model = {
     turn: Player
     boardState: Board
+    size: number
 }
 
 export enum RookType {
@@ -97,6 +105,12 @@ export interface Move {
     relMove: Coordinates,
     board: Board
 }
+
+export type EmittedMove = {
+    coordinates: Coordinates,
+    board: Board
+    pawnPromotion: boolean
+}
 // The move logic is constructed in such a manner that Change args are passed to a function which generates 
 // Instructions for how to mutate the current board state. This is necessary as en passent, castling, queening 
 
@@ -105,7 +119,6 @@ export type CreateChange = (args: ChangeArgs) => PossibleMove
 export type MappedMoves = {
     [key: string]: Board
 }
-
 
 
 
