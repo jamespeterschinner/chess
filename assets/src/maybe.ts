@@ -16,11 +16,16 @@ export function map<T, R>(t: Maybe<T>, f: (t: T, index?: number) => R): Maybe<R>
 
 export function isJust<T>(t: Maybe<T>): t is Just<T> {
     // Type guards are runtime checked to TS tuples are actually Arrays
-    return Array.isArray(t) && t.length == 1 ? true : false
+    return Array.isArray(t) && t.length == 1 
 }
 
-export function unwrap<T>(t: Just<T>) {
-    return t[0] as T
+export function isNothing<T>(t: Maybe<T>): t is Nothing {
+    return Array.isArray(t) && t.length == 0
+}
+
+
+export function unwrap<T>(t: Just<T>): T {
+    return t[0]
 }
 
 export function filter<T>(a: Maybe<T>[]): T[] {
@@ -28,6 +33,6 @@ export function filter<T>(a: Maybe<T>[]): T[] {
 }
 
 export function defaultMapUnwrap<T, D>(t: Maybe<T>, f: (t: T, index?: number) => D, d: D): D {
-    let maybeResult = map(t, f)
-    return isJust(maybeResult) ? unwrap(maybeResult) : d
+    return isJust(t) ? f(unwrap(t)) : d
 }
+
